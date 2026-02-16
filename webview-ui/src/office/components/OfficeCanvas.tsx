@@ -151,9 +151,9 @@ export function OfficeCanvas({ officeState, onClick, isEditMode, editorState, on
           }
         }
 
-        // Camera follow: smoothly center on selected agent
-        if (officeState.selectedAgentId !== null) {
-          const followCh = officeState.characters.get(officeState.selectedAgentId)
+        // Camera follow: smoothly center on followed agent
+        if (officeState.cameraFollowId !== null) {
+          const followCh = officeState.characters.get(officeState.cameraFollowId)
           if (followCh) {
             const layout = officeState.getLayout()
             const mapW = layout.cols * TILE_SIZE * zoom
@@ -384,7 +384,7 @@ export function OfficeCanvas({ officeState, onClick, isEditMode, editorState, on
       if (e.button === 1) {
         e.preventDefault()
         // Break camera follow on manual pan
-        officeState.selectedAgentId = null
+        officeState.cameraFollowId = null
         isPanningRef.current = true
         panStartRef.current = {
           mouseX: e.clientX,
@@ -532,8 +532,10 @@ export function OfficeCanvas({ officeState, onClick, isEditMode, editorState, on
         // Toggle selection: click same agent deselects, different agent selects
         if (officeState.selectedAgentId === hitId) {
           officeState.selectedAgentId = null
+          officeState.cameraFollowId = null
         } else {
           officeState.selectedAgentId = hitId
+          officeState.cameraFollowId = hitId
         }
         onClick(hitId) // still focus terminal
         return
@@ -554,11 +556,13 @@ export function OfficeCanvas({ officeState, onClick, isEditMode, editorState, on
                   // Clicked own seat — send agent back to it
                   officeState.sendToSeat(officeState.selectedAgentId)
                   officeState.selectedAgentId = null
+                  officeState.cameraFollowId = null
                   return
                 } else if (!seat.assigned) {
                   // Clicked available seat — reassign
                   officeState.reassignSeat(officeState.selectedAgentId, seatId)
                   officeState.selectedAgentId = null
+                  officeState.cameraFollowId = null
                   // Persist seat assignments (exclude sub-agents)
                   const seats: Record<number, { palette: number; seatId: string | null }> = {}
                   for (const ch of officeState.characters.values()) {
@@ -574,6 +578,7 @@ export function OfficeCanvas({ officeState, onClick, isEditMode, editorState, on
         }
         // Clicked empty space — deselect
         officeState.selectedAgentId = null
+        officeState.cameraFollowId = null
       }
     },
     [officeState, onClick, screenToWorld, screenToTile, isEditMode],

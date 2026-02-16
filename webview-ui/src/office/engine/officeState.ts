@@ -20,6 +20,7 @@ export class OfficeState {
   walkableTiles: Array<{ col: number; row: number }>
   characters: Map<number, Character> = new Map()
   selectedAgentId: number | null = null
+  cameraFollowId: number | null = null
   hoveredAgentId: number | null = null
   hoveredTile: { col: number; row: number } | null = null
   /** Maps "parentId:toolId" → sub-agent character ID (negative) */
@@ -231,6 +232,7 @@ export class OfficeState {
     }
     this.characters.delete(id)
     if (this.selectedAgentId === id) this.selectedAgentId = null
+    if (this.cameraFollowId === id) this.cameraFollowId = null
   }
 
   /** Find seat uid at a given tile position, or null */
@@ -314,27 +316,46 @@ export class OfficeState {
     const palette = parentCh ? parentCh.palette : 0
     const hueShift = parentCh ? parentCh.hueShift : 0
 
-    // Find a free seat
-    let seatId: string | null = null
+    // Find the free seat closest to the parent agent
+    const parentCol = parentCh ? parentCh.tileCol : 0
+    const parentRow = parentCh ? parentCh.tileRow : 0
+    const dist = (c: number, r: number) =>
+      Math.abs(c - parentCol) + Math.abs(r - parentRow)
+
+    let bestSeatId: string | null = null
+    let bestDist = Infinity
     for (const [uid, seat] of this.seats) {
       if (!seat.assigned) {
-        seatId = uid
-        break
+        const d = dist(seat.seatCol, seat.seatRow)
+        if (d < bestDist) {
+          bestDist = d
+          bestSeatId = uid
+        }
       }
     }
 
-    if (seatId) {
-      const seat = this.seats.get(seatId)!
+    if (bestSeatId) {
+      const seat = this.seats.get(bestSeatId)!
       seat.assigned = true
-      const ch = createCharacter(id, palette, seatId, seat, hueShift)
+      const ch = createCharacter(id, palette, bestSeatId, seat, hueShift)
       ch.isSubagent = true
       ch.parentAgentId = parentAgentId
       this.characters.set(id, ch)
     } else {
-      // No seats — spawn at random walkable tile
-      const spawn = this.walkableTiles.length > 0
-        ? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
-        : { col: 1, row: 1 }
+      // No seats — spawn at closest walkable tile to parent
+      let spawn = { col: 1, row: 1 }
+      if (this.walkableTiles.length > 0) {
+        let closest = this.walkableTiles[0]
+        let closestDist = dist(closest.col, closest.row)
+        for (let i = 1; i < this.walkableTiles.length; i++) {
+          const d = dist(this.walkableTiles[i].col, this.walkableTiles[i].row)
+          if (d < closestDist) {
+            closest = this.walkableTiles[i]
+            closestDist = d
+          }
+        }
+        spawn = closest
+      }
       const ch = createCharacter(id, palette, null, null, hueShift)
       ch.isSubagent = true
       ch.parentAgentId = parentAgentId
@@ -365,6 +386,7 @@ export class OfficeState {
     this.subagentIdMap.delete(key)
     this.subagentMeta.delete(id)
     if (this.selectedAgentId === id) this.selectedAgentId = null
+    if (this.cameraFollowId === id) this.cameraFollowId = null
   }
 
   /** Remove all sub-agents belonging to a parent agent */
@@ -381,6 +403,7 @@ export class OfficeState {
         this.characters.delete(id)
         this.subagentMeta.delete(id)
         if (this.selectedAgentId === id) this.selectedAgentId = null
+        if (this.cameraFollowId === id) this.cameraFollowId = null
         toRemove.push(key)
       }
     }
