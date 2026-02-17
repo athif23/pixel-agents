@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { AgentState } from './types.js';
@@ -60,7 +61,7 @@ export class ArcadiaViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.options = { enableScripts: true };
 		webviewView.webview.html = getWebviewContent(webviewView.webview, this.extensionUri);
 
-		webviewView.webview.onDidReceiveMessage((message) => {
+		webviewView.webview.onDidReceiveMessage(async (message) => {
 			if (message.type === 'openClaude') {
 				launchNewTerminal(
 					this.nextAgentId, this.nextTerminalIndex,
@@ -211,6 +212,40 @@ export class ArcadiaViewProvider implements vscode.WebviewViewProvider {
 				const projectDir = getProjectDirPath();
 				if (projectDir && fs.existsSync(projectDir)) {
 					vscode.env.openExternal(vscode.Uri.file(projectDir));
+				}
+			} else if (message.type === 'exportLayout') {
+				const layout = readLayoutFromFile();
+				if (!layout) {
+					vscode.window.showWarningMessage('Arcadia: No saved layout to export.');
+					return;
+				}
+				const uri = await vscode.window.showSaveDialog({
+					filters: { 'JSON Files': ['json'] },
+					defaultUri: vscode.Uri.file(path.join(os.homedir(), 'arcadia-layout.json')),
+				});
+				if (uri) {
+					fs.writeFileSync(uri.fsPath, JSON.stringify(layout, null, 2), 'utf-8');
+					vscode.window.showInformationMessage('Arcadia: Layout exported successfully.');
+				}
+			} else if (message.type === 'importLayout') {
+				const uris = await vscode.window.showOpenDialog({
+					filters: { 'JSON Files': ['json'] },
+					canSelectMany: false,
+				});
+				if (!uris || uris.length === 0) return;
+				try {
+					const raw = fs.readFileSync(uris[0].fsPath, 'utf-8');
+					const imported = JSON.parse(raw) as Record<string, unknown>;
+					if (imported.version !== 1 || !Array.isArray(imported.tiles)) {
+						vscode.window.showErrorMessage('Arcadia: Invalid layout file.');
+						return;
+					}
+					this.layoutWatcher?.markOwnWrite();
+					writeLayoutToFile(imported);
+					this.webview?.postMessage({ type: 'layoutLoaded', layout: imported });
+					vscode.window.showInformationMessage('Arcadia: Layout imported successfully.');
+				} catch {
+					vscode.window.showErrorMessage('Arcadia: Failed to read or parse layout file.');
 				}
 			}
 		});

@@ -30,7 +30,7 @@ export function SettingsModal({ isOpen, onClose, isDebugMode, onToggleDebugMode 
 
   return (
     <>
-      {/* Invisible backdrop to close on click-outside */}
+      {/* Dark backdrop — click to close */}
       <div
         onClick={onClose}
         style={{
@@ -39,24 +39,57 @@ export function SettingsModal({ isOpen, onClose, isDebugMode, onToggleDebugMode 
           left: 0,
           width: '100%',
           height: '100%',
+          background: 'rgba(0, 0, 0, 0.5)',
           zIndex: 49,
         }}
       />
+      {/* Centered modal */}
       <div
         style={{
-          position: 'absolute',
-          bottom: '100%',
-          right: 0,
-          marginBottom: 6,
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
           zIndex: 50,
-          background: '#1e1e2e',
-          border: '2px solid #4a4a6a',
+          background: 'var(--pixel-bg)',
+          border: '2px solid var(--pixel-border)',
           borderRadius: 0,
           padding: '4px',
-          boxShadow: '2px 2px 0px #0a0a14',
-          minWidth: 170,
+          boxShadow: 'var(--pixel-shadow)',
+          minWidth: 200,
         }}
       >
+        {/* Header with title and X button */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '4px 10px',
+            borderBottom: '1px solid var(--pixel-border)',
+            marginBottom: '4px',
+          }}
+        >
+          <span style={{ fontSize: '24px', color: 'rgba(255, 255, 255, 0.9)' }}>Settings</span>
+          <button
+            onClick={onClose}
+            onMouseEnter={() => setHovered('close')}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              background: hovered === 'close' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+              border: 'none',
+              borderRadius: 0,
+              color: 'rgba(255, 255, 255, 0.6)',
+              fontSize: '24px',
+              cursor: 'pointer',
+              padding: '0 4px',
+              lineHeight: 1,
+            }}
+          >
+            X
+          </button>
+        </div>
+        {/* Menu items */}
         <button
           onClick={() => {
             vscode.postMessage({ type: 'openSessionsFolder' })
@@ -70,6 +103,34 @@ export function SettingsModal({ isOpen, onClose, isDebugMode, onToggleDebugMode 
           }}
         >
           Open Sessions Folder
+        </button>
+        <button
+          onClick={() => {
+            vscode.postMessage({ type: 'exportLayout' })
+            onClose()
+          }}
+          onMouseEnter={() => setHovered('export')}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            ...menuItemBase,
+            background: hovered === 'export' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+          }}
+        >
+          Export Layout
+        </button>
+        <button
+          onClick={() => {
+            vscode.postMessage({ type: 'importLayout' })
+            onClose()
+          }}
+          onMouseEnter={() => setHovered('import')}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            ...menuItemBase,
+            background: hovered === 'import' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+          }}
+        >
+          Import Layout
         </button>
         <button
           onClick={onToggleDebugMode}
