@@ -78,19 +78,14 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			case PI_EVENT_TYPE.TURN_END:
 				this.handleTurnEnd(agentId, r);
 				break;
-			// Message streaming - show "Working..." status (no animation)
+			// Message streaming - emit typing status (not a tool, just status text)
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_START:
-				this.handleTypingStart(agentId, r);
-				break;
-			case PI_EVENT_TYPE.MESSAGE_STREAMING_UPDATE:
-				// If we get an update without a start, treat first update as start
-				this.handleTypingStart(agentId, r);
+				this.emitTypingStatus(agentId, r, true);
 				break;
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_END:
-				this.handleTypingEnd(agentId, r);
+				this.emitTypingStatus(agentId, r, false);
 				break;
-			case PI_EVENT_TYPE.TOOL_EXECUTION_UPDATE:
-			// Ignore tool updates for now (Slice 2 will add streaming/permission handling)
+			case PI_EVENT_TYPE.MESSAGE_STREAMING_UPDATE:
 			case PI_EVENT_TYPE.TOOL_EXECUTION_UPDATE:
 			default:
 				break;
@@ -183,29 +178,52 @@ export class PiAdapter implements RuntimeRecordProcessor {
 		});
 	}
 
-	private handleTypingStart(agentId: number, record: Record<string, unknown>): void {
-		// Emit typing_start - shows "Working..." status without animation
+	private streamingToolId: string | null = null;
+
+	private handleStreamingStart(agentId: number, record: Record<string, unknown>): void {
+		// Emit as a tool_start with a synthetic "typing" tool
+		// This shows the status text above the character
+		this.streamingToolId = `streaming-${Date.now()}`;
 		this.emit({
 			schemaVersion: RUNTIME_SCHEMA_VERSION,
 			runtime: RUNTIME_KIND.PI,
 			agentId,
 			ts: toTimestamp(record),
-			eventType: RUNTIME_EVENT_TYPE.TYPING_START,
+			eventType: RUNTIME_EVENT_TYPE.TOOL_START,
+			toolCallId: this.streamingToolId,
+			toolName: 'Typing',
+			argsPreview: 'Generating response...',
 		});
 	}
 
-	private handleTypingEnd(agentId: number, record: Record<string, unknown>): void {
-		// Emit typing_end
-		this.emit({
-			schemaVersion: RUNTIME_SCHEMA_VERSION,
-			runtime: RUNTIME_KIND.PI,
-			agentId,
-			ts: toTimestamp(record),
-			eventType: RUNTIME_EVENT_TYPE.TYPING_END,
-		});
+	private handleStreamingEnd(agentId: number, record: Record<string, unknown>): void {
+		// Emit tool_end for the streaming
+		if (this.streamingToolId) {
+			this.emit({
+				schemaVersion: RUNTIME_SCHEMA_VERSION,
+				runtime: RUNTIME_KIND.PI,
+				agentId,
+				ts: toTimestamp(record),
+				eventType: RUNTIME_EVENT_TYPE.TOOL_END,
+				toolCallId: this.streamingToolId,
+				status: 'ok',
+			});
+			this.streamingToolId = null;
+		}
 	}
 
 	private emit(event: RuntimeEvent): void {
 		this.orchestrator.handleEvent(event);
+	}
+
+	private emitTypingStatus(agentId: number, record: Record<string, unknown>, isStarting: boolean): void {
+		// Emit typing_start/typing_end events
+		this.emit({
+			schemaVersion: RUNTIME_SCHEMA_VERSION,
+			runtime: RUNTIME_KIND.PI,
+			agentId,
+			ts: toTimestamp(record),
+			eventType: isStarting ? RUNTIME_EVENT_TYPE.TYPING_START : RUNTIME_EVENT_TYPE.TYPING_END,
+		});
 	}
 }

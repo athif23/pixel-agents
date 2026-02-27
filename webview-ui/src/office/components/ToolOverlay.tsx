@@ -9,6 +9,7 @@ interface ToolOverlayProps {
   officeState: OfficeState
   agents: number[]
   agentTools: Record<number, ToolActivity[]>
+  agentStatuses?: Record<number, string>
   subagentCharacters: SubagentCharacter[]
   containerRef: React.RefObject<HTMLDivElement | null>
   zoom: number
@@ -20,8 +21,15 @@ interface ToolOverlayProps {
 function getActivityText(
   agentId: number,
   agentTools: Record<number, ToolActivity[]>,
+  agentStatuses: Record<number, string> | undefined,
   isActive: boolean,
 ): string {
+  // Check for status message first (e.g., "Working...")
+  const status = agentStatuses?.[agentId]
+  if (status && status !== 'waiting') {
+    return status
+  }
+
   const tools = agentTools[agentId]
   if (tools && tools.length > 0) {
     // Find the latest non-done tool
@@ -44,6 +52,7 @@ export function ToolOverlay({
   officeState,
   agents,
   agentTools,
+  agentStatuses,
   subagentCharacters,
   containerRef,
   zoom,
@@ -108,7 +117,7 @@ export function ToolOverlay({
             activityText = sub ? sub.label : 'Subtask'
           }
         } else {
-          activityText = getActivityText(id, agentTools, ch.isActive)
+          activityText = getActivityText(id, agentTools, agentStatuses, ch.isActive)
         }
 
         // Determine dot color

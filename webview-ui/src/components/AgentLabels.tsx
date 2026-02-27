@@ -79,7 +79,7 @@ export function AgentLabels({
         }
 
         const labelText = subLabelMap.get(id) || `Agent #${id}`
-        // Show status text (e.g., "Working...", "Waiting...")
+        // Show status text for any status except 'waiting' (which shows as yellow dot)
         const statusText = status && status !== 'waiting' ? status : null
 
         return (
