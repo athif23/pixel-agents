@@ -19,7 +19,10 @@ import { writeLayoutToFile, readLayoutFromFile, watchLayoutFile } from './layout
 import type { LayoutWatcher } from './layoutPersistence.js';
 import { setRuntimeRecordProcessor } from './transcriptParser.js';
 import { ClaudeAdapter } from './runtime/claudeAdapter.js';
-import { RuntimeOrchestratorImpl, RUNTIME_MODE } from './runtime/runtimeOrchestrator.js';
+import { PiAdapter } from './runtime/piAdapter.js';
+import { PiTelemetryWatcher } from './piTelemetryWatcher.js';
+import { RuntimeOrchestratorImpl, RUNTIME_MODE, type RuntimeMode } from './runtime/runtimeOrchestrator.js';
+import { launchNewPiTerminal } from './agentManager.js';
 
 export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 	nextAgentId = { current: 1 };
@@ -47,9 +50,62 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
 	readonly runtimeOrchestrator = new RuntimeOrchestratorImpl(RUNTIME_MODE.CLAUDE_ONLY);
 	readonly claudeAdapter = new ClaudeAdapter(this.runtimeOrchestrator);
+	readonly piAdapter = new PiAdapter(this.runtimeOrchestrator);
+	piTelemetryWatcher: PiTelemetryWatcher | undefined;
+
+	// Runtime mode persistence key
+	private static readonly RUNTIME_MODE_KEY = 'pixel-agents.runtimeMode';
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		setRuntimeRecordProcessor(this.claudeAdapter);
+		this.initializeRuntimeMode();
+	}
+
+	private initializeRuntimeMode(): void {
+		const savedMode = this.context.workspaceState.get<RuntimeMode>(PixelAgentsViewProvider.RUNTIME_MODE_KEY, RUNTIME_MODE.CLAUDE_ONLY);
+		// If mode is pi-authoritative, start pi telemetry watcher
+		if (savedMode === RUNTIME_MODE.PI_AUTHORITATIVE || savedMode === RUNTIME_MODE.DUAL_READ_CLAUDE_AUTHORITATIVE) {
+			this.startPiTelemetryWatcher();
+		}
+	}
+
+	private startPiTelemetryWatcher(): void {
+		if (this.piTelemetryWatcher) return;
+		this.piTelemetryWatcher = new PiTelemetryWatcher(this.runtimeOrchestrator, this.piAdapter);
+		this.piTelemetryWatcher.start();
+		console.log('[Pixel Agents] Pi telemetry watcher started');
+	}
+
+	private stopPiTelemetryWatcher(): void {
+		this.piTelemetryWatcher?.stop();
+		this.piTelemetryWatcher = undefined;
+		console.log('[Pixel Agents] Pi telemetry watcher stopped');
+	}
+
+	/**
+	 * Switch runtime mode dynamically
+	 */
+	async setRuntimeMode(mode: RuntimeMode): Promise<void> {
+		const currentMode = this.runtimeOrchestrator.getMode();
+		if (currentMode === mode) return;
+
+		// Persist the mode
+		await this.context.workspaceState.update(PixelAgentsViewProvider.RUNTIME_MODE_KEY, mode);
+
+		// Start/stop pi telemetry watcher based on mode
+		if (mode === RUNTIME_MODE.PI_AUTHORITATIVE || mode === RUNTIME_MODE.DUAL_READ_CLAUDE_AUTHORITATIVE) {
+			this.startPiTelemetryWatcher();
+		} else if (mode === RUNTIME_MODE.CLAUDE_ONLY) {
+			this.stopPiTelemetryWatcher();
+		}
+
+		// Note: Full mode switching would require recreating the orchestrator
+		// For now, we just manage the watcher state
+		vscode.window.showInformationMessage(`Pixel Agents: Runtime mode set to ${mode}`);
+	}
+
+	getCurrentRuntimeMode(): RuntimeMode {
+		return this.runtimeOrchestrator.getMode();
 	}
 
 	private get extensionUri(): vscode.Uri {
@@ -71,13 +127,34 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
 		webviewView.webview.onDidReceiveMessage(async (message) => {
 			if (message.type === 'openClaude') {
-				launchNewTerminal(
-					this.nextAgentId, this.nextTerminalIndex,
-					this.agents, this.activeAgentId, this.knownJsonlFiles,
-					this.fileWatchers, this.pollingTimers, this.waitingTimers, this.permissionTimers,
-					this.jsonlPollTimers, this.projectScanTimer,
-					this.webview, this.persistAgents,
-				);
+				const mode = this.getCurrentRuntimeMode();
+				if (mode === RUNTIME_MODE.PI_AUTHORITATIVE) {
+					// Launch pi terminal
+					launchNewPiTerminal(
+						this.nextAgentId, this.nextTerminalIndex,
+						this.agents, this.activeAgentId,
+						this.piTelemetryWatcher,
+						this.webview, this.persistAgents,
+					);
+				} else {
+					// Default: Claude terminal
+					launchNewTerminal(
+						this.nextAgentId, this.nextTerminalIndex,
+						this.agents, this.activeAgentId, this.knownJsonlFiles,
+						this.fileWatchers, this.pollingTimers, this.waitingTimers, this.permissionTimers,
+						this.jsonlPollTimers, this.projectScanTimer,
+						this.webview, this.persistAgents,
+					);
+				}
+			} else if (message.type === 'setRuntimeMode') {
+				// Message from webview to switch runtime mode
+				await this.setRuntimeMode(message.mode as RuntimeMode);
+			} else if (message.type === 'getRuntimeMode') {
+				// Send current mode to webview
+				this.webview?.postMessage({
+					type: 'runtimeModeLoaded',
+					mode: this.getCurrentRuntimeMode(),
+				});
 			} else if (message.type === 'focusAgent') {
 				const agent = this.agents.get(message.id);
 				if (agent) {

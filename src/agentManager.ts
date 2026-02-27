@@ -7,6 +7,7 @@ import { cancelWaitingTimer, cancelPermissionTimer } from './timerManager.js';
 import { startFileWatching, readNewLines, ensureProjectScan } from './fileWatcher.js';
 import { JSONL_POLL_INTERVAL_MS, TERMINAL_NAME_PREFIX, WORKSPACE_KEY_AGENTS, WORKSPACE_KEY_AGENT_SEATS } from './constants.js';
 import { migrateAndLoadLayout } from './layoutPersistence.js';
+import type { PiTelemetryWatcher } from './piTelemetryWatcher.js';
 
 export function getProjectDirPath(cwd?: string): string | null {
 	const workspacePath = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -95,6 +96,92 @@ export function launchNewTerminal(
 		} catch { /* file may not exist yet */ }
 	}, JSONL_POLL_INTERVAL_MS);
 	jsonlPollTimers.set(id, pollTimer);
+}
+
+/**
+ * Get the pi telemetry directory path
+ */
+function getPiTelemetryDir(): string {
+	return path.join(os.homedir(), '.pi', 'agent', 'pixel-agents');
+}
+
+/**
+ * Get the bundled pi telemetry extension path
+ * TODO: Make this configurable or auto-detect
+ */
+function getPiTelemetryExtensionPath(): string | null {
+	// Try to find the extension relative to extension installation
+	const extPath = path.join(__dirname, '..', 'pi-telemetry-extension');
+	if (fs.existsSync(extPath)) {
+		return extPath;
+	}
+	// Fallback: assume it's in a known location
+	const fallbackPath = path.join(os.homedir(), '.pixel-agents', 'pi-telemetry-extension');
+	if (fs.existsSync(fallbackPath)) {
+		return fallbackPath;
+	}
+	return null;
+}
+
+export function launchNewPiTerminal(
+	nextAgentIdRef: { current: number },
+	nextTerminalIndexRef: { current: number },
+	agents: Map<number, AgentState>,
+	activeAgentIdRef: { current: number | null },
+	piTelemetryWatcher: PiTelemetryWatcher | undefined,
+	webview: vscode.Webview | undefined,
+	persistAgents: () => void,
+): void {
+	const idx = nextTerminalIndexRef.current++;
+	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	const terminal = vscode.window.createTerminal({
+		name: `Pi Agent #${idx}`,
+		cwd,
+	});
+	terminal.show();
+
+	const sessionId = crypto.randomUUID();
+
+	// Get telemetry extension path
+	const extPath = getPiTelemetryExtensionPath();
+	if (!extPath) {
+		console.log(`[Pixel Agents] Pi telemetry extension not found, launching pi without telemetry`);
+		terminal.sendText(`pi --session-id ${sessionId}`);
+	} else {
+		terminal.sendText(`pi -e "${extPath}" --session-id ${sessionId}`);
+	}
+
+	// Pi telemetry file path
+	const piTelemetryFile = path.join(getPiTelemetryDir(), `${sessionId}.jsonl`);
+
+	// Create agent immediately (before telemetry file exists)
+	const id = nextAgentIdRef.current++;
+	const agent: AgentState = {
+		id,
+		terminalRef: terminal,
+		projectDir: getPiTelemetryDir(),
+		jsonlFile: piTelemetryFile,
+		fileOffset: 0,
+		lineBuffer: '',
+		activeToolIds: new Set(),
+		activeToolStatuses: new Map(),
+		activeToolNames: new Map(),
+		activeSubagentToolIds: new Map(),
+		activeSubagentToolNames: new Map(),
+		isWaiting: false,
+		permissionSent: false,
+		hadToolsInTurn: false,
+	};
+
+	agents.set(id, agent);
+	activeAgentIdRef.current = id;
+
+	// Register session with pi telemetry watcher
+	piTelemetryWatcher?.registerSession(sessionId, id);
+
+	persistAgents();
+	console.log(`[Pixel Agents] Pi Agent ${id}: created for terminal ${terminal.name}`);
+	webview?.postMessage({ type: 'agentCreated', id });
 }
 
 export function removeAgent(
