@@ -118,6 +118,9 @@ export class PiTelemetryWatcher {
 		};
 		this.sessions.set(sessionId, session);
 
+		// Try to auto-match to a pending agent
+		this.tryMatchPendingAgent(sessionId);
+
 		// Start file watching (similar to fileWatcher.ts pattern)
 		try {
 			session.fileWatcher = fs.watch(filePath, () => {
@@ -195,9 +198,36 @@ export class PiTelemetryWatcher {
 		return this.sessionToAgent.get(sessionId) ?? null;
 	}
 
+	private pendingAgentId: number | null = null;
+	private pendingStartTime = 0;
+
+	/**
+	 * Register a pending agent launch.
+	 * The next new telemetry file discovered will be associated with this agent.
+	 */
+	registerPendingAgent(agentId: number): void {
+		this.pendingAgentId = agentId;
+		this.pendingStartTime = Date.now();
+		console.log(`[Pixel Agents] Registered pending pi agent ${agentId}`);
+	}
+
+	/**
+	 * Try to match a newly discovered session to a pending agent.
+	 */
+	private tryMatchPendingAgent(sessionId: string): number | null {
+		// If we have a pending agent and it's within 10 seconds of launch, match it
+		if (this.pendingAgentId !== null && Date.now() - this.pendingStartTime < 10000) {
+			const agentId = this.pendingAgentId;
+			this.registerSession(sessionId, agentId);
+			this.pendingAgentId = null;
+			return agentId;
+		}
+		return null;
+	}
+
 	/**
 	 * Register a mapping between pi session ID and agent ID.
-	 * Called by agentManager when launching a pi terminal.
+	 * Called when telemetry file is discovered.
 	 */
 	registerSession(sessionId: string, agentId: number): void {
 		this.sessionToAgent.set(sessionId, agentId);

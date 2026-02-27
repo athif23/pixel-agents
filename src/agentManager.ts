@@ -149,23 +149,23 @@ export function launchNewPiTerminal(
 	});
 	terminal.show();
 
-	const sessionId = crypto.randomUUID();
-
+	// Create agent immediately (before terminal launches)
+	const id = nextAgentIdRef.current++;
+	
 	// Get telemetry extension path
 	const extPath = getPiTelemetryExtensionPath();
 	if (!extPath) {
 		console.log(`[Pixel Agents] Pi telemetry extension not found, launching pi without telemetry`);
-		terminal.sendText(`pi --session-id ${sessionId}`);
+		terminal.sendText(`pi`);
 	} else {
-		// Use --extension flag (or -e) to load the telemetry extension
-		terminal.sendText(`pi --extension "${extPath}" --session-id ${sessionId}`);
+		// Launch pi with telemetry extension
+		// Note: pi manages its own session, we discover it from telemetry
+		terminal.sendText(`pi --extension "${extPath}"`);
 	}
 
-	// Pi telemetry file path
-	const piTelemetryFile = path.join(getPiTelemetryDir(), `${sessionId}.jsonl`);
+	// We'll discover the actual telemetry file once pi creates it
+	const piTelemetryFile = path.join(getPiTelemetryDir(), `pending-${id}.jsonl`);
 
-	// Create agent immediately (before telemetry file exists)
-	const id = nextAgentIdRef.current++;
 	const agent: AgentState = {
 		id,
 		terminalRef: terminal,
@@ -186,8 +186,8 @@ export function launchNewPiTerminal(
 	agents.set(id, agent);
 	activeAgentIdRef.current = id;
 
-	// Register session with pi telemetry watcher
-	piTelemetryWatcher?.registerSession(sessionId, id);
+	// Register as pending agent - session will be auto-discovered
+	piTelemetryWatcher?.registerPendingAgent(id);
 
 	persistAgents();
 	console.log(`[Pixel Agents] Pi Agent ${id}: created for terminal ${terminal.name}`);

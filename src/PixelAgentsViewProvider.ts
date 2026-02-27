@@ -48,7 +48,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 	// Cross-window layout sync
 	layoutWatcher: LayoutWatcher | null = null;
 
-	readonly runtimeOrchestrator = new RuntimeOrchestratorImpl(RUNTIME_MODE.CLAUDE_ONLY);
+	readonly runtimeOrchestrator = new RuntimeOrchestratorImpl(RUNTIME_MODE.PI_AUTHORITATIVE);
 	readonly claudeAdapter = new ClaudeAdapter(this.runtimeOrchestrator);
 	readonly piAdapter = new PiAdapter(this.runtimeOrchestrator);
 	piTelemetryWatcher: PiTelemetryWatcher | undefined;
