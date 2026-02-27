@@ -17,6 +17,9 @@ import { loadFurnitureAssets, sendAssetsToWebview, loadFloorTiles, sendFloorTile
 import { WORKSPACE_KEY_AGENT_SEATS, GLOBAL_KEY_SOUND_ENABLED } from './constants.js';
 import { writeLayoutToFile, readLayoutFromFile, watchLayoutFile } from './layoutPersistence.js';
 import type { LayoutWatcher } from './layoutPersistence.js';
+import { setRuntimeRecordProcessor } from './transcriptParser.js';
+import { ClaudeAdapter } from './runtime/claudeAdapter.js';
+import { RuntimeOrchestratorImpl, RUNTIME_MODE } from './runtime/runtimeOrchestrator.js';
 
 export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 	nextAgentId = { current: 1 };
@@ -42,7 +45,12 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 	// Cross-window layout sync
 	layoutWatcher: LayoutWatcher | null = null;
 
-	constructor(private readonly context: vscode.ExtensionContext) {}
+	readonly runtimeOrchestrator = new RuntimeOrchestratorImpl(RUNTIME_MODE.CLAUDE_ONLY);
+	readonly claudeAdapter = new ClaudeAdapter(this.runtimeOrchestrator);
+
+	constructor(private readonly context: vscode.ExtensionContext) {
+		setRuntimeRecordProcessor(this.claudeAdapter);
+	}
 
 	private get extensionUri(): vscode.Uri {
 		return this.context.extensionUri;
@@ -312,6 +320,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	dispose() {
+		setRuntimeRecordProcessor(null);
 		this.layoutWatcher?.dispose();
 		this.layoutWatcher = null;
 		for (const id of [...this.agents.keys()]) {

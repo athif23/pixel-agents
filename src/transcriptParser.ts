@@ -14,8 +14,15 @@ import {
 	BASH_COMMAND_DISPLAY_MAX_LENGTH,
 	TASK_DESCRIPTION_DISPLAY_MAX_LENGTH,
 } from './constants.js';
+import type { RuntimeRecordProcessor } from './runtime/types.js';
 
 export const PERMISSION_EXEMPT_TOOLS = new Set(['Task', 'AskUserQuestion']);
+
+let runtimeRecordProcessor: RuntimeRecordProcessor | null = null;
+
+export function setRuntimeRecordProcessor(processor: RuntimeRecordProcessor | null): void {
+	runtimeRecordProcessor = processor;
+}
 
 export function formatToolStatus(toolName: string, input: Record<string, unknown>): string {
 	const base = (p: unknown) => typeof p === 'string' ? path.basename(p) : '';
@@ -54,6 +61,7 @@ export function processTranscriptLine(
 	if (!agent) return;
 	try {
 		const record = JSON.parse(line);
+		runtimeRecordProcessor?.processRecord(agentId, record);
 
 		if (record.type === 'assistant' && Array.isArray(record.message?.content)) {
 			const blocks = record.message.content as Array<{
