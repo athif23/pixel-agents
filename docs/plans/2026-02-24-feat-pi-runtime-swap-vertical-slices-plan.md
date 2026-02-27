@@ -313,8 +313,8 @@ From spec-flow analysis, this plan explicitly covers:
 ## Suggested Child Plan Backlog
 
 - [x] `docs/plans/2026-02-24-feat-pi-runtime-slice-0-foundation-plan.md` **COMPLETED** (commit `7fbc742`)
-- [x] `docs/plans/2026-02-24-feat-pi-runtime-slice-1-telemetry-plan.md` **COMPLETED** (commit `d89666f`)
-- [ ] `docs/plans/2026-02-24-feat-pi-runtime-slice-2-waiting-permission-plan.md` **NEXT**
+- [x] `docs/plans/2026-02-24-feat-pi-runtime-slice-1-telemetry-plan.md` **COMPLETED** (merged to main)
+- [ ] `docs/plans/2026-02-02-feat-pi-runtime-slice-2-waiting-permission-plan.md` **NEXT**
 - [ ] `docs/plans/2026-02-24-feat-pi-runtime-slice-2-waiting-permission-plan.md`
 - [ ] `docs/plans/2026-02-24-feat-pi-runtime-slice-3-subagents-plan.md`
 - [ ] `docs/plans/2026-02-24-feat-pi-runtime-slice-4-default-cutover-plan.md`
