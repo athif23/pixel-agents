@@ -178,8 +178,6 @@ export class PiTelemetryWatcher {
 	private processLine(sessionId: string, line: string): void {
 		try {
 			const record = JSON.parse(line);
-			// Session ID is derived from filename, use a hash or map to agent ID
-			// For now, emit with sessionId as identifier - agent manager will map
 			const agentId = this.resolveAgentId(sessionId);
 			if (agentId !== null) {
 				this.adapter.processRecord(agentId, record);

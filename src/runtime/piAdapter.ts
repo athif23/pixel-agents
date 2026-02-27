@@ -78,15 +78,10 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			case PI_EVENT_TYPE.TURN_END:
 				this.handleTurnEnd(agentId, r);
 				break;
+			// Ignore message streaming - only animate actual tool calls
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_START:
-				this.handleStreamingStart(agentId, r);
-				break;
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_UPDATE:
-				// Ignore updates - just keep the typing state active
-				break;
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_END:
-				this.handleStreamingEnd(agentId, r);
-				break;
 			// Ignore tool updates for now (Slice 2 will add streaming/permission handling)
 			case PI_EVENT_TYPE.TOOL_EXECUTION_UPDATE:
 			default:
@@ -177,34 +172,6 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			ts: toTimestamp(record),
 			eventType: RUNTIME_EVENT_TYPE.AGENT_END,
 			reason: 'turn_complete',
-		});
-	}
-
-	private handleStreamingStart(agentId: number, record: Record<string, unknown>): void {
-		// Emit as a tool_start with a synthetic "typing" tool
-		// This makes the character show typing animation during text streaming
-		this.emit({
-			schemaVersion: RUNTIME_SCHEMA_VERSION,
-			runtime: RUNTIME_KIND.PI,
-			agentId,
-			ts: toTimestamp(record),
-			eventType: RUNTIME_EVENT_TYPE.TOOL_START,
-			toolCallId: `streaming-${Date.now()}`,
-			toolName: 'Typing',
-			argsPreview: 'Generating response...',
-		});
-	}
-
-	private handleStreamingEnd(agentId: number, record: Record<string, unknown>): void {
-		// Emit tool_end for the streaming
-		this.emit({
-			schemaVersion: RUNTIME_SCHEMA_VERSION,
-			runtime: RUNTIME_KIND.PI,
-			agentId,
-			ts: toTimestamp(record),
-			eventType: RUNTIME_EVENT_TYPE.TOOL_END,
-			toolCallId: `streaming-${Date.now()}`,
-			status: 'ok',
 		});
 	}
 

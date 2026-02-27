@@ -58,13 +58,18 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		setRuntimeRecordProcessor(this.claudeAdapter);
+		// Start pi telemetry watcher immediately if in pi mode
+		if (this.runtimeOrchestrator.getMode() === RUNTIME_MODE.PI_AUTHORITATIVE || 
+		    this.runtimeOrchestrator.getMode() === RUNTIME_MODE.DUAL_READ_CLAUDE_AUTHORITATIVE) {
+			this.startPiTelemetryWatcher();
+		}
 		this.initializeRuntimeMode();
 	}
 
 	private initializeRuntimeMode(): void {
-		const savedMode = this.context.workspaceState.get<RuntimeMode>(PixelAgentsViewProvider.RUNTIME_MODE_KEY, RUNTIME_MODE.CLAUDE_ONLY);
-		// If mode is pi-authoritative, start pi telemetry watcher
-		if (savedMode === RUNTIME_MODE.PI_AUTHORITATIVE || savedMode === RUNTIME_MODE.DUAL_READ_CLAUDE_AUTHORITATIVE) {
+		// Start watcher if in pi mode
+		const mode = this.runtimeOrchestrator.getMode();
+		if (mode === RUNTIME_MODE.PI_AUTHORITATIVE || mode === RUNTIME_MODE.DUAL_READ_CLAUDE_AUTHORITATIVE) {
 			this.startPiTelemetryWatcher();
 		}
 	}
@@ -73,7 +78,6 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 		if (this.piTelemetryWatcher) return;
 		this.piTelemetryWatcher = new PiTelemetryWatcher(this.runtimeOrchestrator, this.piAdapter);
 		this.piTelemetryWatcher.start();
-		console.log('[Pixel Agents] Pi telemetry watcher started');
 	}
 
 	private stopPiTelemetryWatcher(): void {
