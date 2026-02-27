@@ -145,6 +145,37 @@ export default function (pi: ExtensionAPI) {
 		});
 	});
 
+	// Message streaming (for text-only responses without tools)
+	pi.on("message_start", async (event, _ctx) => {
+		if (event.message.role === 'assistant') {
+			writer.enqueue({
+				type: 'message_streaming_start',
+				sessionId: writer['sessionId'] ?? 'unknown',
+				timestamp: Date.now(),
+			});
+		}
+	});
+
+	pi.on("message_update", async (event, _ctx) => {
+		if (event.message.role === 'assistant') {
+			writer.enqueue({
+				type: 'message_streaming_update',
+				sessionId: writer['sessionId'] ?? 'unknown',
+				timestamp: Date.now(),
+			});
+		}
+	});
+
+	pi.on("message_end", async (event, _ctx) => {
+		if (event.message.role === 'assistant') {
+			writer.enqueue({
+				type: 'message_streaming_end',
+				sessionId: writer['sessionId'] ?? 'unknown',
+				timestamp: Date.now(),
+			});
+		}
+	});
+
 	// Tool execution lifecycle
 	pi.on("tool_execution_start", async (event, _ctx) => {
 		const parentToolId = writer.getCurrentParentToolId();
