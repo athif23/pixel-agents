@@ -30,5 +30,5 @@
 - [x] Build passes (`npm run build`)
 - [x] Type-check passes
 - [x] Lint passes (224 pre-existing warnings, 0 new errors)
-- [ ] Manual test: permission flow for `bash` command
-- [ ] Manual test: waiting state after tool completion
+- [x] Manual test: permission flow for `bash` command ✓
+- [x] Manual test: waiting state after tool completion ✓
