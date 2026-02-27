@@ -228,29 +228,21 @@ export default function (pi: ExtensionAPI) {
 				toolName: toolName,
 			});
 			
-			// Ask user for confirmation before allowing high-risk tool
-			// Extract meaningful args fields for display
-			let argsStr = '';
-			if (event.args && typeof event.args === 'object') {
-				const args = event.args as Record<string, unknown>;
-				if (toolName === 'bash' && typeof args.command === 'string') {
-					argsStr = args.command.slice(0, 80);
-				} else if ((toolName === 'write' || toolName === 'edit') && typeof args.path === 'string') {
-					argsStr = args.path.slice(0, 80);
-				} else {
-					// Fallback: stringify with truncation
-					try {
-						argsStr = JSON.stringify(event.args);
-						if (argsStr.length > 60) argsStr = argsStr.slice(0, 60) + '...';
-					} catch {
-						argsStr = '[args]';
-					}
+			// Extract tool details from event.input (not args)
+			// tool_call event has structured input based on tool type
+			let detailStr = '';
+			const input = (event as any).input as Record<string, unknown> | undefined;
+			if (input && typeof input === 'object') {
+				if (toolName === 'bash' && typeof input.command === 'string') {
+					detailStr = input.command.slice(0, 80);
+				} else if ((toolName === 'write' || toolName === 'edit') && typeof input.path === 'string') {
+					detailStr = input.path.slice(0, 80);
 				}
 			}
-			const toolDesc = `${toolName}${argsStr ? ` ${argsStr}` : ''}`;
+			const toolDesc = detailStr ? `${toolName} ${detailStr}` : toolName;
 			const approved = await ctx.ui.confirm(
 				`Allow ${toolDesc}?`,
-				{ threatLevel: 'high' }
+				`The assistant wants to run: ${toolDesc}`
 			);
 			
 			// Emit permission wait end after confirmation
