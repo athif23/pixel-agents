@@ -107,19 +107,27 @@ function getPiTelemetryDir(): string {
 
 /**
  * Get the bundled pi telemetry extension path
- * TODO: Make this configurable or auto-detect
+ * Looks for the extension in multiple locations
  */
 function getPiTelemetryExtensionPath(): string | null {
-	// Try to find the extension relative to extension installation
-	const extPath = path.join(__dirname, '..', 'pi-telemetry-extension');
-	if (fs.existsSync(extPath)) {
-		return extPath;
+	// 1. Development: relative to src/ directory (repo root)
+	const devPath = path.join(__dirname, '..', '..', 'pi-telemetry-extension');
+	if (fs.existsSync(devPath)) {
+		return path.join(devPath, 'index.ts');
 	}
-	// Fallback: assume it's in a known location
-	const fallbackPath = path.join(os.homedir(), '.pixel-agents', 'pi-telemetry-extension');
-	if (fs.existsSync(fallbackPath)) {
-		return fallbackPath;
+	
+	// 2. Production: bundled with extension in dist/../pi-telemetry-extension
+	const prodPath = path.join(__dirname, '..', 'pi-telemetry-extension');
+	if (fs.existsSync(prodPath)) {
+		return path.join(prodPath, 'index.ts');
 	}
+	
+	// 3. Global install: ~/.pi/agent/extensions/pixel-agents-telemetry
+	const globalPath = path.join(os.homedir(), '.pi', 'agent', 'extensions', 'pixel-agents-telemetry');
+	if (fs.existsSync(globalPath)) {
+		return path.join(globalPath, 'index.ts');
+	}
+	
 	return null;
 }
 
@@ -148,7 +156,8 @@ export function launchNewPiTerminal(
 		console.log(`[Pixel Agents] Pi telemetry extension not found, launching pi without telemetry`);
 		terminal.sendText(`pi --session-id ${sessionId}`);
 	} else {
-		terminal.sendText(`pi -e "${extPath}" --session-id ${sessionId}`);
+		// Use --extension flag (or -e) to load the telemetry extension
+		terminal.sendText(`pi --extension "${extPath}" --session-id ${sessionId}`);
 	}
 
 	// Pi telemetry file path
