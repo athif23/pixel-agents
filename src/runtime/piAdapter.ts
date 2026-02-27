@@ -78,6 +78,13 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			case PI_EVENT_TYPE.TURN_END:
 				this.handleTurnEnd(agentId, r);
 				break;
+			// Permission wait events
+			case 'permission_wait_start':
+				this.handlePermissionWaitStart(agentId, r);
+				break;
+			case 'permission_wait_end':
+				this.handlePermissionWaitEnd(agentId, r);
+				break;
 			// Message streaming - emit typing status (not a tool, just status text)
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_START:
 				this.emitTypingStatus(agentId, r, true);
@@ -175,6 +182,42 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			ts: toTimestamp(record),
 			eventType: RUNTIME_EVENT_TYPE.AGENT_END,
 			reason: 'turn_complete',
+		});
+	}
+
+	private handlePermissionWaitStart(agentId: number, record: Record<string, unknown>): void {
+		const toolCallId = typeof record.toolCallId === 'string' ? record.toolCallId : undefined;
+		const toolName = typeof record.toolName === 'string' ? record.toolName : 'unknown';
+		const parentToolId = typeof record.parentToolId === 'string' ? record.parentToolId : undefined;
+
+		if (!toolCallId) return;
+
+		this.emit({
+			schemaVersion: RUNTIME_SCHEMA_VERSION,
+			runtime: RUNTIME_KIND.PI,
+			agentId,
+			ts: toTimestamp(record),
+			eventType: RUNTIME_EVENT_TYPE.PERMISSION_WAIT_START,
+			toolCallId,
+			toolName,
+			parentToolId,
+		});
+	}
+
+	private handlePermissionWaitEnd(agentId: number, record: Record<string, unknown>): void {
+		const toolCallId = typeof record.toolCallId === 'string' ? record.toolCallId : undefined;
+		const parentToolId = typeof record.parentToolId === 'string' ? record.parentToolId : undefined;
+
+		if (!toolCallId) return;
+
+		this.emit({
+			schemaVersion: RUNTIME_SCHEMA_VERSION,
+			runtime: RUNTIME_KIND.PI,
+			agentId,
+			ts: toTimestamp(record),
+			eventType: RUNTIME_EVENT_TYPE.PERMISSION_WAIT_END,
+			toolCallId,
+			parentToolId,
 		});
 	}
 

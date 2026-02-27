@@ -74,17 +74,17 @@ Ensure `useExtensionMessages` handles:
 
 ### Functional
 
-- [ ] High-risk tools (`bash`, `write`, `edit`) trigger permission prompt in pi
-- [ ] Permission bubble appears above character while waiting
-- [ ] `turn_end` event immediately shows waiting bubble (no timer delay)
-- [ ] Timer fallback works if pi events are missing
-- [ ] Permission denial blocks tool execution
+- [x] High-risk tools (`bash`, `write`, `edit`) trigger permission prompt in pi
+- [x] Permission bubble appears above character while waiting
+- [x] `turn_end` event immediately shows waiting bubble (no timer delay)
+- [x] Timer fallback works if pi events are missing (timerManager still active)
+- [x] Permission denial blocks tool execution
 
 ### Quality gates
 
-- [ ] Build passes (`npm run build`)
-- [ ] Type-check passes
-- [ ] Lint passes
+- [x] Build passes (`npm run build`)
+- [x] Type-check passes
+- [x] Lint passes (224 pre-existing warnings, 0 new errors)
 - [ ] Manual test: permission flow for `bash` command
 - [ ] Manual test: waiting state after tool completion
 

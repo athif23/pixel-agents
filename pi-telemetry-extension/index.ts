@@ -225,10 +225,42 @@ export default function (pi: ExtensionAPI) {
 				toolName: event.toolName,
 			});
 			
-			// Note: We don't block here - just emit the event
-			// The actual permission gating would be done by another extension
-			// or we could add ctx.ui.confirm() here for built-in gating
+			// Ask user for confirmation before allowing high-risk tool
+			const toolDesc = `${event.toolName}${event.args ? ` ${JSON.stringify(event.args).slice(0, 80)}` : ''}`;
+			const approved = await ctx.ui.confirm(
+				`Allow ${toolDesc}?`,
+				{ threatLevel: 'high' }
+			);
+			
+			// Emit permission wait end after confirmation
+			writer.enqueue({
+				type: 'permission_wait_end',
+				sessionId: writer['sessionId'] ?? 'unknown',
+				timestamp: Date.now(),
+				toolCallId: event.toolCallId,
+				toolName: event.toolName,
+				approved,
+			});
+			
+			// If not approved, block the tool execution
+			if (!approved) {
+				// Emit tool_execution_end with error to indicate cancellation
+				writer.enqueue({
+					type: 'tool_execution_end',
+					sessionId: writer['sessionId'] ?? 'unknown',
+					timestamp: Date.now(),
+					toolCallId: event.toolCallId,
+					status: 'error',
+					error: 'User denied permission',
+				});
+				
+				// Return false to indicate tool should not execute
+				return false;
+			}
 		}
+		
+		// Allow tool execution (either not high-risk or approved)
+		return true;
 	});
 
 	console.log('[PixelAgentsTelemetry] Extension loaded');
