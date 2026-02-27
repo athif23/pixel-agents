@@ -12,6 +12,8 @@ export const RUNTIME_EVENT_TYPE = {
 	AGENT_END: 'agent_end',
 	TOOL_START: 'tool_start',
 	TOOL_END: 'tool_end',
+	TYPING_START: 'typing_start',
+	TYPING_END: 'typing_end',
 	PERMISSION_WAIT_START: 'permission_wait_start',
 	PERMISSION_WAIT_END: 'permission_wait_end',
 	SUBAGENT_START: 'subagent_start',
@@ -54,6 +56,14 @@ export interface ToolEndEvent extends RuntimeEventBase {
 	parentToolId?: string;
 }
 
+export interface TypingStartEvent extends RuntimeEventBase {
+	eventType: typeof RUNTIME_EVENT_TYPE.TYPING_START;
+}
+
+export interface TypingEndEvent extends RuntimeEventBase {
+	eventType: typeof RUNTIME_EVENT_TYPE.TYPING_END;
+}
+
 export interface PermissionWaitStartEvent extends RuntimeEventBase {
 	eventType: typeof RUNTIME_EVENT_TYPE.PERMISSION_WAIT_START;
 	toolCallId: string;
@@ -88,6 +98,8 @@ export type RuntimeEvent =
 	| AgentEndEvent
 	| ToolStartEvent
 	| ToolEndEvent
+	| TypingStartEvent
+	| TypingEndEvent
 	| PermissionWaitStartEvent
 	| PermissionWaitEndEvent
 	| SubagentStartEvent

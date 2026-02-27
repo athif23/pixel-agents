@@ -78,10 +78,14 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			case PI_EVENT_TYPE.TURN_END:
 				this.handleTurnEnd(agentId, r);
 				break;
-			// Ignore message streaming - only animate actual tool calls
+			// Message streaming - show "Working..." status (no animation)
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_START:
-			case PI_EVENT_TYPE.MESSAGE_STREAMING_UPDATE:
+				this.handleTypingStart(agentId, r);
+				break;
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_END:
+				this.handleTypingEnd(agentId, r);
+				break;
+			case PI_EVENT_TYPE.MESSAGE_STREAMING_UPDATE:
 			// Ignore tool updates for now (Slice 2 will add streaming/permission handling)
 			case PI_EVENT_TYPE.TOOL_EXECUTION_UPDATE:
 			default:
@@ -172,6 +176,28 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			ts: toTimestamp(record),
 			eventType: RUNTIME_EVENT_TYPE.AGENT_END,
 			reason: 'turn_complete',
+		});
+	}
+
+	private handleTypingStart(agentId: number, record: Record<string, unknown>): void {
+		// Emit typing_start - shows "Working..." status without animation
+		this.emit({
+			schemaVersion: RUNTIME_SCHEMA_VERSION,
+			runtime: RUNTIME_KIND.PI,
+			agentId,
+			ts: toTimestamp(record),
+			eventType: RUNTIME_EVENT_TYPE.TYPING_START,
+		});
+	}
+
+	private handleTypingEnd(agentId: number, record: Record<string, unknown>): void {
+		// Emit typing_end
+		this.emit({
+			schemaVersion: RUNTIME_SCHEMA_VERSION,
+			runtime: RUNTIME_KIND.PI,
+			agentId,
+			ts: toTimestamp(record),
+			eventType: RUNTIME_EVENT_TYPE.TYPING_END,
 		});
 	}
 

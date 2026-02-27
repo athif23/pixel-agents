@@ -89,6 +89,20 @@ export class RuntimeOrchestratorImpl implements RuntimeOrchestrator {
 	private emitToWebview(event: RuntimeEvent): void {
 		if (!this.webview) return;
 
+		// Handle typing/streaming status (no animation, just text indicator)
+		if (event.eventType === 'typing_start') {
+			this.webview.postMessage({
+				type: 'agentStatus',
+				id: event.agentId,
+				status: 'typing',
+			});
+			return;
+		}
+		if (event.eventType === 'typing_end') {
+			// Clear typing status, will be set to waiting on agent_end
+			return;
+		}
+
 		switch (event.eventType) {
 			case 'tool_start':
 				this.activeTools.set(event.toolCallId, { toolName: event.toolName, agentId: event.agentId });
