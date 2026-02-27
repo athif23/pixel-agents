@@ -85,6 +85,13 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			case 'permission_wait_end':
 				this.handlePermissionWaitEnd(agentId, r);
 				break;
+			// Sub-agent events
+			case 'subagent_start':
+				this.handleSubagentStart(agentId, r);
+				break;
+			case 'subagent_end':
+				this.handleSubagentEnd(agentId, r);
+				break;
 			// Message streaming - emit typing status (not a tool, just status text)
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_START:
 				this.emitTypingStatus(agentId, r, true);
@@ -253,6 +260,42 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			});
 			this.streamingToolId = null;
 		}
+	}
+
+	private handleSubagentStart(agentId: number, record: Record<string, unknown>): void {
+		const parentToolId = typeof record.toolCallId === 'string' ? record.toolCallId : undefined;
+		const label = typeof record.label === 'string' ? record.label : 'Subtask';
+
+		if (!parentToolId) return;
+
+		this.emit({
+			schemaVersion: RUNTIME_SCHEMA_VERSION,
+			runtime: RUNTIME_KIND.PI,
+			agentId,
+			ts: toTimestamp(record),
+			eventType: RUNTIME_EVENT_TYPE.SUBAGENT_START,
+			subagentId: parentToolId, // Use Task toolCallId as subagentId
+			parentToolId,
+			label,
+		});
+	}
+
+	private handleSubagentEnd(agentId: number, record: Record<string, unknown>): void {
+		const parentToolId = typeof record.toolCallId === 'string' ? record.toolCallId : undefined;
+		const reason = typeof record.reason === 'string' ? record.reason : undefined;
+
+		if (!parentToolId) return;
+
+		this.emit({
+			schemaVersion: RUNTIME_SCHEMA_VERSION,
+			runtime: RUNTIME_KIND.PI,
+			agentId,
+			ts: toTimestamp(record),
+			eventType: RUNTIME_EVENT_TYPE.SUBAGENT_END,
+			subagentId: parentToolId,
+			parentToolId,
+			reason,
+		});
 	}
 
 	private emit(event: RuntimeEvent): void {

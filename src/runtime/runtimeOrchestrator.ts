@@ -163,19 +163,21 @@ export class RuntimeOrchestratorImpl implements RuntimeOrchestrator {
 				break;
 
 			case 'subagent_start':
+				// Emit agentToolStart with "Subtask:" prefix to trigger sub-agent character creation
 				this.webview.postMessage({
-					type: 'subagentToolStart',
+					type: 'agentToolStart',
 					id: event.agentId,
-					parentToolId: event.parentToolId,
-					status: event.label ?? 'Subtask',
+					toolId: event.parentToolId,
+					status: `Subtask: ${event.label ?? 'Task'}`,
 				});
 				break;
 
 			case 'subagent_end':
+				// Emit agentToolDone to trigger sub-agent character removal
 				this.webview.postMessage({
-					type: 'subagentToolDone',
+					type: 'agentToolDone',
 					id: event.agentId,
-					parentToolId: event.parentToolId,
+					toolId: event.parentToolId,
 				});
 				break;
 		}

@@ -34,6 +34,7 @@ class TelemetryWriter {
 	private writeQueue: TelemetryEvent[] = [];
 	private flushTimer: ReturnType<typeof setInterval> | null = null;
 	private parentToolStack: string[] = [];
+	private activeTaskTools: Map<string, string> = new Map(); // toolCallId -> label
 
 	start(sessionId: string): void {
 		this.sessionId = sessionId;
@@ -90,6 +91,50 @@ class TelemetryWriter {
 
 	popParentTool(): void {
 		this.parentToolStack.pop();
+	}
+
+	// Sub-agent tracking for Task tools
+	startTaskTool(toolCallId: string, input?: Record<string, unknown>): void {
+		// Extract a label from the Task input if available
+		let label = 'Subtask';
+		if (input && typeof input === 'object') {
+			if (typeof input.description === 'string') {
+				label = input.description.slice(0, 60);
+			} else if (typeof input.prompt === 'string') {
+				label = input.prompt.slice(0, 60);
+			}
+		}
+		this.activeTaskTools.set(toolCallId, label);
+
+		// Emit subagent_start event
+		this.enqueue({
+			type: 'subagent_start',
+			sessionId: this.sessionId ?? 'unknown',
+			timestamp: Date.now(),
+			toolCallId,
+			toolName: 'Task',
+			label,
+		});
+	}
+
+	endTaskTool(toolCallId: string): void {
+		if (!this.activeTaskTools.has(toolCallId)) return;
+
+		this.activeTaskTools.delete(toolCallId);
+
+		// Emit subagent_end event
+		this.enqueue({
+			type: 'subagent_end',
+			sessionId: this.sessionId ?? 'unknown',
+			timestamp: Date.now(),
+			toolCallId,
+			toolName: 'Task',
+			reason: 'complete',
+		});
+	}
+
+	isTaskToolActive(toolCallId: string): boolean {
+		return this.activeTaskTools.has(toolCallId);
 	}
 }
 
@@ -179,7 +224,7 @@ export default function (pi: ExtensionAPI) {
 	// Tool execution lifecycle
 	pi.on("tool_execution_start", async (event, _ctx) => {
 		const parentToolId = writer.getCurrentParentToolId();
-		
+
 		writer.enqueue({
 			type: 'tool_execution_start',
 			sessionId: writer['sessionId'] ?? 'unknown',
@@ -189,14 +234,20 @@ export default function (pi: ExtensionAPI) {
 			args: event.args,
 			parentToolId,
 		});
-		
+
 		// Track this as a parent for nested tools (e.g., subagents)
 		writer.pushParentTool(event.toolCallId);
+
+		// Detect Task tool spawning a sub-agent
+		if (event.toolName === 'Task') {
+			const input = (event as any).input as Record<string, unknown> | undefined;
+			writer.startTaskTool(event.toolCallId, input);
+		}
 	});
 
 	pi.on("tool_execution_end", async (event, _ctx) => {
 		const parentToolId = writer.getCurrentParentToolId();
-		
+
 		writer.enqueue({
 			type: 'tool_execution_end',
 			sessionId: writer['sessionId'] ?? 'unknown',
@@ -206,7 +257,12 @@ export default function (pi: ExtensionAPI) {
 			error: event.isError ? String(event.result) : undefined,
 			parentToolId,
 		});
-		
+
+		// End Task tool sub-agent tracking if this was a Task
+		if (event.toolName === 'Task' || writer.isTaskToolActive(event.toolCallId)) {
+			writer.endTaskTool(event.toolCallId);
+		}
+
 		// Pop from parent stack
 		writer.popParentTool();
 	});
