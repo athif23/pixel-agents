@@ -110,16 +110,17 @@ function getPiTelemetryDir(): string {
  * Looks for the extension in multiple locations
  */
 function getPiTelemetryExtensionPath(): string | null {
-	// 1. Development: relative to src/ directory (repo root)
-	const devPath = path.join(__dirname, '..', '..', 'pi-telemetry-extension');
-	if (fs.existsSync(devPath)) {
-		return path.join(devPath, 'index.ts');
+	// 1. Production: bundled with extension (dist/pi-telemetry-extension)
+	// __dirname is dist/ when running compiled extension
+	const bundledPath = path.join(__dirname, 'pi-telemetry-extension');
+	if (fs.existsSync(bundledPath)) {
+		return path.join(bundledPath, 'index.ts');
 	}
 	
-	// 2. Production: bundled with extension in dist/../pi-telemetry-extension
-	const prodPath = path.join(__dirname, '..', 'pi-telemetry-extension');
-	if (fs.existsSync(prodPath)) {
-		return path.join(prodPath, 'index.ts');
+	// 2. Development: relative to src/ directory (repo root)
+	const devPath = path.join(__dirname, '..', 'pi-telemetry-extension');
+	if (fs.existsSync(devPath)) {
+		return path.join(devPath, 'index.ts');
 	}
 	
 	// 3. Global install: ~/.pi/agent/extensions/pixel-agents-telemetry

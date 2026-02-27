@@ -27,6 +27,27 @@ function copyAssets() {
 }
 
 /**
+ * Copy pi-telemetry-extension to dist/pi-telemetry-extension
+ */
+function copyTelemetryExtension() {
+	const srcDir = path.join(__dirname, 'pi-telemetry-extension');
+	const dstDir = path.join(__dirname, 'dist', 'pi-telemetry-extension');
+
+	if (fs.existsSync(srcDir)) {
+		// Remove existing dist/pi-telemetry-extension if present
+		if (fs.existsSync(dstDir)) {
+			fs.rmSync(dstDir, { recursive: true });
+		}
+
+		// Copy recursively
+		fs.cpSync(srcDir, dstDir, { recursive: true });
+		console.log('✓ Copied pi-telemetry-extension/ → dist/pi-telemetry-extension/');
+	} else {
+		console.log('ℹ️  pi-telemetry-extension/ folder not found (optional)');
+	}
+}
+
+/**
  * @type {import('esbuild').Plugin}
  */
 const esbuildProblemMatcherPlugin = {
@@ -70,8 +91,9 @@ async function main() {
 	} else {
 		await ctx.rebuild();
 		await ctx.dispose();
-		// Copy assets after build
+		// Copy assets and telemetry extension after build
 		copyAssets();
+		copyTelemetryExtension();
 	}
 }
 
