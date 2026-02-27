@@ -1,0 +1,11 @@
+{
+  "name": "pixel-agents-telemetry",
+  "version": "1.0.0",
+  "description": "Telemetry extension for pi-coding-agent to emit events for Pixel Agents VS Code extension",
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.1.0"
+  }
+}
