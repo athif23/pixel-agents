@@ -215,18 +215,39 @@ export default function (pi: ExtensionAPI) {
 	pi.on("tool_call", async (event, ctx) => {
 		const highRiskTools = ['bash', 'write', 'edit'];
 		
-		if (highRiskTools.includes(event.toolName)) {
+		// Defensive: ensure toolName is a string
+		const toolName = typeof event.toolName === 'string' ? event.toolName : String(event.toolName);
+		
+		if (highRiskTools.includes(toolName)) {
 			// Emit permission wait start before the tool executes
 			writer.enqueue({
 				type: 'permission_wait_start',
 				sessionId: writer['sessionId'] ?? 'unknown',
 				timestamp: Date.now(),
 				toolCallId: event.toolCallId,
-				toolName: event.toolName,
+				toolName: toolName,
 			});
 			
 			// Ask user for confirmation before allowing high-risk tool
-			const toolDesc = `${event.toolName}${event.args ? ` ${JSON.stringify(event.args).slice(0, 80)}` : ''}`;
+			// Extract meaningful args fields for display
+			let argsStr = '';
+			if (event.args && typeof event.args === 'object') {
+				const args = event.args as Record<string, unknown>;
+				if (toolName === 'bash' && typeof args.command === 'string') {
+					argsStr = args.command.slice(0, 80);
+				} else if ((toolName === 'write' || toolName === 'edit') && typeof args.path === 'string') {
+					argsStr = args.path.slice(0, 80);
+				} else {
+					// Fallback: stringify with truncation
+					try {
+						argsStr = JSON.stringify(event.args);
+						if (argsStr.length > 60) argsStr = argsStr.slice(0, 60) + '...';
+					} catch {
+						argsStr = '[args]';
+					}
+				}
+			}
+			const toolDesc = `${toolName}${argsStr ? ` ${argsStr}` : ''}`;
 			const approved = await ctx.ui.confirm(
 				`Allow ${toolDesc}?`,
 				{ threatLevel: 'high' }
@@ -238,7 +259,7 @@ export default function (pi: ExtensionAPI) {
 				sessionId: writer['sessionId'] ?? 'unknown',
 				timestamp: Date.now(),
 				toolCallId: event.toolCallId,
-				toolName: event.toolName,
+				toolName: toolName,
 				approved,
 			});
 			
