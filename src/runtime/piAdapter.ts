@@ -82,10 +82,14 @@ export class PiAdapter implements RuntimeRecordProcessor {
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_START:
 				this.handleTypingStart(agentId, r);
 				break;
+			case PI_EVENT_TYPE.MESSAGE_STREAMING_UPDATE:
+				// If we get an update without a start, treat first update as start
+				this.handleTypingStart(agentId, r);
+				break;
 			case PI_EVENT_TYPE.MESSAGE_STREAMING_END:
 				this.handleTypingEnd(agentId, r);
 				break;
-			case PI_EVENT_TYPE.MESSAGE_STREAMING_UPDATE:
+			case PI_EVENT_TYPE.TOOL_EXECUTION_UPDATE:
 			// Ignore tool updates for now (Slice 2 will add streaming/permission handling)
 			case PI_EVENT_TYPE.TOOL_EXECUTION_UPDATE:
 			default:

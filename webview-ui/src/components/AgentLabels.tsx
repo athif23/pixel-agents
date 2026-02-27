@@ -79,6 +79,8 @@ export function AgentLabels({
         }
 
         const labelText = subLabelMap.get(id) || `Agent #${id}`
+        // Show status text (e.g., "Working...", "Waiting...")
+        const statusText = status && status !== 'waiting' ? status : null
 
         return (
           <div
@@ -123,6 +125,21 @@ export function AgentLabels({
             >
               {labelText}
             </span>
+            {statusText && (
+              <span
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--vscode-descriptionForeground)',
+                  background: 'rgba(30,30,46,0.7)',
+                  padding: '0px 4px',
+                  borderRadius: 2,
+                  whiteSpace: 'nowrap',
+                  marginTop: 1,
+                }}
+              >
+                {statusText}
+              </span>
+            )}
           </div>
         )
       })}
